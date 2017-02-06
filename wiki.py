@@ -1,7 +1,9 @@
 import os
 import spacy
-from spacy.tokens import Doc
 import re
+import iotools
+import numpy as np
+from wiki_data_op import Preprocessor
 
 wikidata_dir = os.path.join('.', 'wikidata')
 wikidoc_dir = os.path.join(wikidata_dir, 'wikidocs')
@@ -23,24 +25,40 @@ def nlp():
     en = spacy.load('en')
     with open(vocab_strings_fn, 'r') as f:
       en.vocab.strings.load(f)
-    en.vocab.load_lexemes(vocab_lexeme_fn)
+    # en.vocab.load_lexemes(vocab_lexeme_fn)
     __nlp__ = en
   return __nlp__
 
-def read_all(nlp_=None, epochs=1):
+files = [
+    os.path.join(wikidoc_dir, fn)
+    for fn in os.listdir(wikidoc_dir)
+    if wikidoc_fn_re.match(fn) is not None
+]
+train_files = files[:int(len(files)*0.85)]
+dev_files = files[int(len(files)*0.85):int(len(files)*0.95)]
+test_files = files[int(len(files)*0.85):int(len(files)*0.95)]
+
+vocab_size = 100000
+
+def normalize_sequence(seq: np.ndarray, oov_token=2, reserved_tokens=3, max_vocab=vocab_size):
+  seq = seq + 3
+  seq[seq > max_vocab] = oov_token
+  return seq
+
+def _read(fns, nlp_=None, epochs=1):
   if nlp_ is None:
     print('loading nlp object')
     nlp_ = nlp()
-  files = [
-      os.path.join(wikidoc_dir, fn)
-      for fn in os.listdir(wikidoc_dir)
-      if wikidoc_fn_re.match(fn) is not None
-  ]
   print('reading from %s files' % len(files))
+  preproc = Preprocessor(nlp_.vocab)
   for _ in range(epochs):
     for fn in files:
-      docs = []
-      with open(fn, 'rb') as f:
-        for byte_str in Doc.read_bytes(f):
-          docs.append(Doc(nlp_.vocab).from_bytes(byte_str))
-      yield docs
+      with iotools.BinarySequenceFile(fn, 'rb') as f:
+        for binstr in f:
+          yield preproc.unpack(binstr)
+
+def read_trainset(epochs=1):
+  return _read(train_files, epochs=epochs)
+
+def read_devset(epochs=1):
+  return _read(dev_files, epochs=epochs)
