@@ -12,6 +12,8 @@ vocab_lexeme_fn = os.path.join(vocab_dir, 'vocab.bin')
 vocab_strings_fn = os.path.join(vocab_dir, 'strings.json')
 wikidoc_fn_template = 'wikidoc-%08d'
 
+train_dir = os.path.join('.', 'wikitrain')
+
 wikidoc_fn_re = re.compile('^wikidoc-[0-9]{8}$')
 
 for path in [wikidata_dir, wikidoc_dir, vocab_dir]:

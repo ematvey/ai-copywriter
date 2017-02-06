@@ -1,7 +1,18 @@
+import argparse
+parser = argparse.ArgumentParser()
+parser.add_argument('--checkpoint-frequency', type=int, default=100)
+parser.add_argument('--eval-frequency', type=int, default=500)
+parser.add_argument('--batch-size', type=int, default=30)
+parser.add_argument("--device", default="/cpu:0")
+parser.add_argument("--max-grad-norm", type=float, default=5.0)
+parser.add_argument("--lr", type=float, default=0.001)
+args = parser.parse_args()
+import time
+import os
 import numpy as np
 import tensorflow as tf
-from tensorflow.contrib.rnn import LSTMCell, GRUCell
-from model_new import Seq2SeqModel, train_on_copy_task
+from tensorflow.contrib.rnn import LSTMCell, GRUCell, MultiRNNCell
+from model import Seq2SeqModel, train_on_copy_task
 import pandas as pd
 import helpers
 import wiki
@@ -12,24 +23,50 @@ tf.reset_default_graph()
 tf.set_random_seed(1)
 
 data = wiki.read_trainset()
-print(next(data))
-print(next(data))
-print(next(data))
+train_dir = wiki.train_dir
 
-with tf.Session() as session:
+checkpoint_dir = os.path.join(train_dir, 'checkpoints')
+checkpoint_path = os.path.join(checkpoint_dir, 'model')
+tflog_dir = os.path.join(train_dir, 'tflog')
+
+if not os.path.exists(checkpoint_dir):
+  os.makedirs(checkpoint_dir)
+
+def create_model(session, restore_only=False):
   # with bidirectional encoder, decoder state size should be
   # 2x encoder state size
-  model = Seq2SeqModel(encoder_cell=GRUCell(64),
-                       decoder_cell=GRUCell(128),
+  encoder_cell = GRUCell(64)
+  encoder_cell = MultiRNNCell([encoder_cell]*3)
+  decoder_cell = GRUCell(128)
+  decoder_cell = MultiRNNCell([decoder_cell]*3)
+  model = Seq2SeqModel(encoder_cell=encoder_cell,
+                       decoder_cell=decoder_cell,
                        vocab_size=wiki.vocab_size,
                        embedding_size=300,
                        attention=True,
                        bidirectional=True,
+                       device=args.device,
                        debug=False)
 
-  session.run(tf.global_variables_initializer())
+  saver = tf.train.Saver(tf.global_variables())
+  checkpoint = tf.train.get_checkpoint_state(checkpoint_dir)
+  if checkpoint:
+    print("Reading model parameters from %s" % checkpoint.model_checkpoint_path)
+    saver.restore(session, checkpoint.model_checkpoint_path)
+  elif restore_only:
+    raise FileNotFoundError("Cannot restore model")
+  else:
+    print("Created model with fresh parameters")
+    session.run(tf.global_variables_initializer())
+  tf.get_default_graph().finalize()
+  return model, saver
 
-  batch_size = 100
+
+with tf.Session(config=tf.ConfigProto(allow_soft_placement=True)) as session:
+  model, saver = create_model(session)
+  summary_writer = tf.summary.FileWriter(tflog_dir, graph=tf.get_default_graph())
+
+  batch_size = args.batch_size
   data = wiki.read_trainset()
 
   def pull_batch():
@@ -37,6 +74,8 @@ with tf.Session() as session:
     ys = []
     while len(xs) < batch_size:
       original, corrupted = next(data)
+      if len(original) > 100:
+        continue # skip long sentences
       original = wiki.normalize_sequence(original)
       corrupted = [wiki.normalize_sequence(s) for s in corrupted]
 
@@ -50,20 +89,26 @@ with tf.Session() as session:
   def train_one():
     xs, ys = pull_batch()
     fd = model.make_train_inputs(xs, ys)
-    _, l = session.run([model.train_op, model.loss], fd)
-    print(l)
 
-  while True:
+    try:
+      t0 = time.clock()
+      step, _, loss, summaries = session.run([model.global_step, model.train_op, model.loss, model.summary_op], fd)
+      td = time.clock() - t0
+
+      summary_writer.add_summary(summaries, global_step=step)
+
+      if step % 1 == 0:
+        print('step %s, loss=%s, t=%s, inputs=%s' % (step, loss, round(td, 2), fd[model.encoder_inputs].shape))
+      if step != 0 and step % args.checkpoint_frequency == 0:
+        print('checkpoint & graph meta')
+        saver.save(session, checkpoint_path, global_step=step)
+        print('checkpoint done')
+    except tf.errors.ResourceExhaustedError as e:
+      print('REE: {}'.format(e))
+
+
+  for i in range(1000000):
     try:
       train_one()
     except StopIteration:
       break
-
-
-  # train_on_copy_task(session, model,
-  #                     length_from=3, length_to=8,
-  #                     vocab_lower=2, vocab_upper=10,
-  #                     batch_size=100,
-  #                     max_batches=3000,
-  #                     batches_in_epoch=1000,
-  #                     verbose=True)
