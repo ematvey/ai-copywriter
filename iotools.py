@@ -64,7 +64,7 @@ class FilePoolWriter():
     self.i += 1
     return f
 
-  def write(self, byte_string):
+  def write(self, byte_string: bytes):
     f_idx = random.randint(0, self.poolsize-1)
     f = self.pool[f_idx]
     f['file'].write(byte_string)

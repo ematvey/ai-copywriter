@@ -3,6 +3,7 @@ import spacy
 import re
 import iotools
 import numpy as np
+import random
 from wiki_data_op import Preprocessor
 
 wikidata_dir = os.path.join('.', 'wikidata')
@@ -37,6 +38,8 @@ files = [
     if wikidoc_fn_re.match(fn) is not None
 ]
 train_files = files[:int(len(files)*0.85)]
+random.shuffle(train_files)
+
 dev_files = files[int(len(files)*0.85):int(len(files)*0.95)]
 test_files = files[int(len(files)*0.85):int(len(files)*0.95)]
 
@@ -47,17 +50,18 @@ def normalize_sequence(seq: np.ndarray, oov_token=2, reserved_tokens=3, max_voca
   seq[seq > max_vocab] = oov_token
   return seq
 
-def _read(fns, nlp_=None, epochs=1):
+def _read(files, nlp_=None, epochs=1):
   if nlp_ is None:
     print('loading nlp object')
     nlp_ = nlp()
-  print('reading from %s files' % len(files))
+  l = len(files)
+  print('reading from %s files' % l)
   preproc = Preprocessor(nlp_.vocab)
-  for _ in range(epochs):
-    for fn in files:
+  for i in range(epochs):
+    for j, fn in enumerate(files):
       with iotools.BinarySequenceFile(fn, 'rb') as f:
         for binstr in f:
-          yield preproc.unpack(binstr)
+          yield i, j, l, fn, preproc.unpack(binstr)
 
 def read_trainset(epochs=1):
   return _read(train_files, epochs=epochs)

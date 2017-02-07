@@ -15,7 +15,8 @@ class Seq2SeqModel():
   EOS = 1
 
   def __init__(self, encoder_cell, decoder_cell, vocab_size, embedding_size,
-               bidirectional=True, attention=False, max_grad_norm=5.0, device='/cpu:0', debug=False):
+               bidirectional=True, attention=False, max_grad_norm=5.0, device='/cpu:0',
+               debug=False):
     self.debug = debug
     self.bidirectional = bidirectional
     self.attention = attention

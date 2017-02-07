@@ -22,7 +22,6 @@ warnings.filterwarnings("ignore")
 tf.reset_default_graph()
 tf.set_random_seed(1)
 
-data = wiki.read_trainset()
 train_dir = wiki.train_dir
 
 checkpoint_dir = os.path.join(train_dir, 'checkpoints')
@@ -36,9 +35,9 @@ def create_model(session, restore_only=False):
   # with bidirectional encoder, decoder state size should be
   # 2x encoder state size
   encoder_cell = GRUCell(64)
-  encoder_cell = MultiRNNCell([encoder_cell]*3)
+  encoder_cell = MultiRNNCell([encoder_cell]*5)
   decoder_cell = GRUCell(128)
-  decoder_cell = MultiRNNCell([decoder_cell]*3)
+  decoder_cell = MultiRNNCell([decoder_cell]*5)
   model = Seq2SeqModel(encoder_cell=encoder_cell,
                        decoder_cell=decoder_cell,
                        vocab_size=wiki.vocab_size,
@@ -48,7 +47,7 @@ def create_model(session, restore_only=False):
                        device=args.device,
                        debug=False)
 
-  saver = tf.train.Saver(tf.global_variables())
+  saver = tf.train.Saver(tf.global_variables(), keep_checkpoint_every_n_hours=1)
   checkpoint = tf.train.get_checkpoint_state(checkpoint_dir)
   if checkpoint:
     print("Reading model parameters from %s" % checkpoint.model_checkpoint_path)
@@ -67,14 +66,14 @@ with tf.Session(config=tf.ConfigProto(allow_soft_placement=True)) as session:
   summary_writer = tf.summary.FileWriter(tflog_dir, graph=tf.get_default_graph())
 
   batch_size = args.batch_size
-  data = wiki.read_trainset()
+  data = wiki.read_trainset(epochs=5)
 
   def pull_batch():
     xs = []
     ys = []
     while len(xs) < batch_size:
-      original, corrupted = next(data)
-      if len(original) > 100:
+      i, j, l, fn, (original, corrupted) = next(data)
+      if len(original) > 30:
         continue # skip long sentences
       original = wiki.normalize_sequence(original)
       corrupted = [wiki.normalize_sequence(s) for s in corrupted]
@@ -84,10 +83,10 @@ with tf.Session(config=tf.ConfigProto(allow_soft_placement=True)) as session:
       for c in corrupted:
         xs.append(c)
         ys.append(original)
-    return xs, ys
+    return xs, ys, i, j, l, fn
 
   def train_one():
-    xs, ys = pull_batch()
+    xs, ys, i, j, l, fn = pull_batch()
     fd = model.make_train_inputs(xs, ys)
 
     try:
@@ -98,7 +97,9 @@ with tf.Session(config=tf.ConfigProto(allow_soft_placement=True)) as session:
       summary_writer.add_summary(summaries, global_step=step)
 
       if step % 1 == 0:
-        print('step %s, loss=%s, t=%s, inputs=%s' % (step, loss, round(td, 2), fd[model.encoder_inputs].shape))
+        print('step %s, loss=%s, t=%s, inputs=%s, file=%s of %s, epoch=%s, fn=%s' % (
+          step, loss, round(td, 2), fd[model.encoder_inputs].shape, j, l, i, fn
+        ))
       if step != 0 and step % args.checkpoint_frequency == 0:
         print('checkpoint & graph meta')
         saver.save(session, checkpoint_path, global_step=step)
