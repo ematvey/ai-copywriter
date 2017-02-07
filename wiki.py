@@ -47,7 +47,7 @@ vocab_size = 100000
 
 def normalize_sequence(seq: np.ndarray, oov_token=2, reserved_tokens=3, max_vocab=vocab_size):
   seq = seq + 3
-  seq[seq > max_vocab] = oov_token
+  seq[seq > max_vocab-1] = oov_token
   return seq
 
 def _read(files, nlp_=None, epochs=1):
