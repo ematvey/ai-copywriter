@@ -34,9 +34,11 @@ if not os.path.exists(checkpoint_dir):
 def create_model(session, restore_only=False):
   # with bidirectional encoder, decoder state size should be
   # 2x encoder state size
-  encoder_cell = GRUCell(64)
+  is_training = tf.placeholder(dtype=tf.bool, name='is_training')
+
+  encoder_cell = LSTMCell(64)
   encoder_cell = MultiRNNCell([encoder_cell]*5)
-  decoder_cell = GRUCell(128)
+  decoder_cell = LSTMCell(128)
   decoder_cell = MultiRNNCell([decoder_cell]*5)
   model = Seq2SeqModel(encoder_cell=encoder_cell,
                        decoder_cell=decoder_cell,
@@ -44,6 +46,7 @@ def create_model(session, restore_only=False):
                        embedding_size=300,
                        attention=True,
                        bidirectional=True,
+                       is_training=is_training,
                        device=args.device,
                        debug=False)
 

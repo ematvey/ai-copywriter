@@ -9,15 +9,16 @@ from tensorflow.contrib.rnn import LSTMCell, LSTMStateTuple, GRUCell, MultiRNNCe
 import helpers
 
 class Seq2SeqModel():
-  """Seq2Seq model usign blocks from new `tf.contrib.seq2seq`."""
+  """Seq2Seq model using blocks from new `tf.contrib.seq2seq`."""
 
   PAD = 0
   EOS = 1
 
   def __init__(self, encoder_cell, decoder_cell, vocab_size, embedding_size,
                bidirectional=True, attention=False, max_grad_norm=5.0, device='/cpu:0',
-               debug=False):
+               is_training=True, debug=False):
     self.debug = debug
+    self.is_training = is_training
     self.bidirectional = bidirectional
     self.attention = attention
     self.max_grad_norm = max_grad_norm
@@ -31,10 +32,10 @@ class Seq2SeqModel():
     with tf.variable_scope('seq2seq') as scope:
       self.global_step = tf.Variable(0, name='global_step', trainable=False)
 
-      # if is_training is not None:
-      #   self.is_training = is_training
-      # else:
-      #   self.is_training = tf.placeholder(dtype=tf.bool, name='is_training')
+      if is_training is not None:
+        self.is_training = is_training
+      else:
+        self.is_training = tf.placeholder(dtype=tf.bool, name='is_training')
 
       if self.debug:
         self._init_debug_inputs()
@@ -272,6 +273,7 @@ class Seq2SeqModel():
     inputs_, inputs_length_ = helpers.batch(input_seq)
     targets_, targets_length_ = helpers.batch(target_seq)
     return {
+      self.is_training: True,
       self.encoder_inputs: inputs_,
       self.encoder_inputs_length: inputs_length_,
       self.decoder_targets: targets_,
@@ -281,6 +283,7 @@ class Seq2SeqModel():
   def make_inference_inputs(self, input_seq):
     inputs_, inputs_length_ = helpers.batch(input_seq)
     return {
+      self.is_training: False,
       self.encoder_inputs: inputs_,
       self.encoder_inputs_length: inputs_length_,
     }
