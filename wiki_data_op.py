@@ -15,7 +15,6 @@ class Preprocessor():
     self.vocab = vocab
 
     self.dropout_tokens = {self.vocab[tok].orth for tok in self._DROPOUT_TOKENS}
-    print('dropout tokens: ', self.dropout_tokens)
     self.dets = [self.vocab[tok].orth for tok in self._DETS]
 
     self.comma = self.vocab[','].orth

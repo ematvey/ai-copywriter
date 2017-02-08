@@ -5,7 +5,7 @@ parser.add_argument('--eval-frequency', type=int, default=500)
 parser.add_argument('--batch-size', type=int, default=30)
 parser.add_argument("--device", default="/cpu:0")
 parser.add_argument("--max-grad-norm", type=float, default=5.0)
-parser.add_argument("--lr", type=float, default=0.001)
+parser.add_argument("--lr", type=float, default=0.0001)
 args = parser.parse_args()
 import time
 import os

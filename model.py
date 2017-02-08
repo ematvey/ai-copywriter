@@ -16,7 +16,7 @@ class Seq2SeqModel():
 
   def __init__(self, encoder_cell, decoder_cell, vocab_size, embedding_size,
                bidirectional=True, attention=False, max_grad_norm=5.0, device='/cpu:0',
-               is_training=True, debug=False):
+               learning_rate=1e-4, is_training=True, debug=False):
     self.debug = debug
     self.is_training = is_training
     self.bidirectional = bidirectional

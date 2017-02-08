@@ -2,8 +2,7 @@ import os
 import random
 
 class BinarySequenceFile():
-  """Allows packing multible blobs into single file,
-     takes care of addressing."""
+  """Allows packing multible blobs into single file"""
   def __init__(self, name, mode='rb'):
     self.name = name
     self.mode = mode
@@ -11,8 +10,7 @@ class BinarySequenceFile():
     self.max_length = 2 ** (self.length_bytesize * 8)
     self._file = open(self.name, self.mode)
 
-  def write(self, byte_string):
-    assert isinstance(byte_string, bytes)
+  def write(self, byte_string: bytes):
     size = len(byte_string)
     assert size < self.max_length
     size_encoded = size.to_bytes(self.length_bytesize, 'big')
