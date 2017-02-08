@@ -7,6 +7,8 @@ Main hypothesis is that corruption does not have to be very clever, just suffici
 Trying to make it work.
 LSTMs seem to be less volatile then GRUs. Deeper nets (5 layers vs 3 layers) seem to converge to higher loss.
 
+Probably unnecessary warning: this is research project, not in any way suitable for production use. No API stability guarantee of any kind is given. If you want to derive from this work, copy-paste it!
+
 ## How to run
 Requires Python >=3.5 and TensorFlow r1.0.0.
 
@@ -19,3 +21,9 @@ Run preprocessor: `python3 wiki_prepare.py path/to/wikidump`. It should take sev
 Run training: `python3 worker.py --device=/gpu:0 --batch-size=30`.
 
 You may want to increase/decrease batch size based on your GPU mem. I have GTX 970 with 4gb.
+
+## Related work
+@atpaino ![implemented similar model](https://github.com/atpaino/deep-text-corrector) on smaller corpus in Jan 2017. His work is based on tensorflow's `translate` example, which uses static RNN rollout with bucketizing. In this work I attempt to implement dynamic RNN rollout using tensorflow's lower-level blocks.
+
+## License
+MIT
