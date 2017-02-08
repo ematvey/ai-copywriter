@@ -14,8 +14,8 @@ Download Wikipedia dump from `https://dumps.wikimedia.org/enwiki/latest/enwiki-l
 
 Install deps.
 
-Run preprocessor: `python3 wiki_prepare.py path/to/wikidump`.
+Run preprocessor: `python3 wiki_prepare.py path/to/wikidump`. It should take several hours. Corruption types that preprocessor is doing could be found in wiki_data_op.py.
 
 Run training: `python3 worker.py --device=/gpu:0 --batch-size=30`.
 
-Batch size may be increased/decreased based on your GPU mem.
+You may want to increase/decrease batch size based on your GPU mem. I have GTX 970 with 4gb.
