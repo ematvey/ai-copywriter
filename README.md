@@ -23,7 +23,7 @@ Run training: `python3 worker.py --device=/gpu:0 --batch-size=30`.
 You may want to increase/decrease batch size based on your GPU mem. I have GTX 970 with 4gb.
 
 ## Related work
-@atpaino ![implemented similar model](https://github.com/atpaino/deep-text-corrector) on smaller corpus in Jan 2017. His work is based on tensorflow's `translate` example, which uses static RNN rollout with bucketizing. In this work I attempt to implement dynamic RNN rollout using tensorflow's lower-level blocks.
+@atpaino [implemented similar model](https://github.com/atpaino/deep-text-corrector) on smaller corpus in Jan 2017. His work is based on tensorflow's `translate` example, which uses static RNN rollout with bucketizing. In this work I attempt to implement dynamic RNN rollout using tensorflow's lower-level blocks.
 
 ## License
 MIT
