@@ -12,13 +12,21 @@ Probably unnecessary warning: this is research project, not in any way suitable 
 ## How to run
 Requires Python >=3.5 and TensorFlow r1.0.0.
 
-Download Wikipedia dump from `https://dumps.wikimedia.org/enwiki/latest/enwiki-latest-pages-articles.xml.bz2`.
+Download Wikipedia dump e.g. with 
+
+```wget -c https://dumps.wikimedia.org/enwiki/latest/enwiki-latest-pages-articles.xml.bz2```
 
 Install deps.
 
-Run preprocessor: `python3 wiki_prepare.py path/to/wikidump`. It should take several hours. Corruption types that preprocessor is doing could be found in wiki_data_op.py.
+Run preprocessor:
 
-Run training: `python3 worker.py --device=/gpu:0 --batch-size=30`.
+```python3 wiki_prepare.py path/to/wikidump```
+
+It should take several hours. Corruption types that preprocessor is doing could be found in wiki_data_op.py.
+
+Run training:
+
+```python3 worker.py --device=/gpu:0 --batch-size=30```
 
 You may want to increase/decrease batch size based on your GPU mem. I have GTX 970 with 4gb.
 
