@@ -1,13 +1,17 @@
+#!/usr/bin/env python3
+
 import argparse
 parser = argparse.ArgumentParser()
 parser.add_argument('--mode', type=str, default='train', choices=['train', 'eval'])
+parser.add_argument('--wikidump', default='./wikidump')
+parser.add_argument("--device", default="/cpu:0")
 parser.add_argument('--checkpoint-frequency', type=int, default=100)
 parser.add_argument('--eval-frequency', type=int, default=500)
 parser.add_argument('--batch-size', type=int, default=30)
-parser.add_argument("--device", default="/cpu:0")
 parser.add_argument("--max-grad-norm", type=float, default=5.0)
 parser.add_argument("--lr", type=float, default=0.0001)
 args = parser.parse_args()
+
 import time
 import os
 import numpy as np
@@ -16,7 +20,7 @@ from tensorflow.contrib.rnn import LSTMCell, GRUCell, MultiRNNCell
 from model import Seq2SeqModel
 import pandas as pd
 import helpers
-import wiki
+import wiki_char as wiki
 import warnings
 warnings.filterwarnings("ignore")
 
@@ -37,14 +41,14 @@ def create_model(session, restore_only=False):
   # 2x encoder state size
   is_training = tf.placeholder(dtype=tf.bool, name='is_training')
 
-  encoder_cell = LSTMCell(64)
-  encoder_cell = MultiRNNCell([encoder_cell]*5)
-  decoder_cell = LSTMCell(128)
-  decoder_cell = MultiRNNCell([decoder_cell]*5)
+  encoder_cell = LSTMCell(128)
+  encoder_cell = MultiRNNCell([encoder_cell]*3)
+  decoder_cell = LSTMCell(256)
+  decoder_cell = MultiRNNCell([decoder_cell]*3)
   model = Seq2SeqModel(encoder_cell=encoder_cell,
                        decoder_cell=decoder_cell,
                        vocab_size=wiki.vocab_size,
-                       embedding_size=300,
+                       embedding_size=30,
                        attention=True,
                        bidirectional=True,
                        is_training=is_training,
@@ -70,27 +74,66 @@ with tf.Session(config=tf.ConfigProto(allow_soft_placement=True)) as session:
   summary_writer = tf.summary.FileWriter(tflog_dir, graph=tf.get_default_graph())
 
   batch_size = args.batch_size
-  data = wiki.read_trainset(epochs=5)
 
-  def pull_batch():
-    xs = []
-    ys = []
-    while len(xs) < batch_size:
-      i, j, l, fn, (original, corrupted) = next(data)
-      if len(original) > 30:
-        continue # skip long sentences
-      original = wiki.normalize_sequence(original)
-      corrupted = [wiki.normalize_sequence(s) for s in corrupted]
+  def decode(seq):
+    b = bytes([c-2 for c in seq if c > 1])
+    try:
+      s = b.decode('utf-8', errors='ignore')
+      return s
+    except UnicodeDecodeError:
+      print('error decoding %s' % seq)
+      return ''
 
-      xs.append(original)
-      ys.append(original)
-      for c in corrupted:
-        xs.append(c)
+  # queue = tf.RandomShuffleQueue(
+  #   capacity=2**12,
+  #   min_after_dequeue=batch_size,
+  #   dtypes=[tf.uint8, tf.uint8],
+  #   seed=12,
+  #   shapes=[[None, None], [None], [None, None], [None]])
+
+  # x_batch_enqueue = tf.placeholder(tf.uint8, shape=[None, None])
+  # x_length_enqueue = tf.placeholder(tf.uint8, shape=[None])
+  # y_batch_enqueue = tf.placeholder(tf.uint8, shape=[None, None])
+  # y_length_enqueue = tf.placeholder(tf.uint8, shape=[None])
+
+  # enqueue_op = queue.enqueue_many([x_batch_enqueue, x_length_enqueue, y_batch_enqueue, y_length_enqueue])
+
+  def batch_iterator():
+    data = wiki.reader(args.wikidump)
+    def pull_batch():
+      xs = []
+      ys = []
+      while len(xs) < batch_size:
+        original, corrupted = next(data)
+        if len(original) > 200:
+          continue # skip long sentences
+        original = [b+2 for b in bytes(original, encoding='utf-8')]
+        corrupted = [[b+2 for b in bytes(corr, encoding='utf-8')] for corr in corrupted]
+        xs.append(original)
         ys.append(original)
-    return xs, ys, i, j, l, fn
+        for corr in corrupted:
+          xs.append(corr)
+          ys.append(original)
+      return xs, ys
+    while 1:
+      xs, ys = pull_batch()
+      yield xs, ys
+
+  batches = batch_iterator()
+
+  def queue_feeder():
+    for input_seq, target_seq in batch_iterator():
+      inputs_, inputs_length_ = helpers.batch(input_seq)
+      targets_, targets_length_ = helpers.batch(target_seq)
+      session.run(enqueue_op, {
+        x_batch_enqueue: inputs_,
+        x_length_enqueue: inputs_length_,
+        y_batch_enqueue: targets_,
+        y_length_enqueue: targets_length_,
+      })
 
   def train_one():
-    xs, ys, i, j, l, fn = pull_batch()
+    xs, ys = next(batches)
     fd = model.make_train_inputs(xs, ys)
 
     try:
@@ -101,9 +144,18 @@ with tf.Session(config=tf.ConfigProto(allow_soft_placement=True)) as session:
       summary_writer.add_summary(summaries, global_step=step)
 
       if step % 1 == 0:
-        print('step %s, loss=%s, t=%s, inputs=%s, file=%s of %s, epoch=%s, fn=%s' % (
-          step, loss, round(td, 2), fd[model.encoder_inputs].shape, j, l, i, fn
+        print('step %s, loss=%s, t=%s, inputs=%s, ' % (
+          step, loss, round(td, 2), fd[model.encoder_inputs].shape,
         ))
+      if step % 25 == 0:
+        print('step %s, try decode' % step)
+        x = xs[0]
+        fd = model.make_inference_inputs([x])
+        pred = session.run(model.decoder_prediction_inference, fd)
+        print('IN:  %s' % decode(x))
+        print('OUT: %s' % decode(pred[:, 0]))
+        # import IPython
+        # IPython.embed()
       if step != 0 and step % args.checkpoint_frequency == 0:
         print('checkpoint & graph meta')
         saver.save(session, checkpoint_path, global_step=step)
@@ -118,20 +170,20 @@ with tf.Session(config=tf.ConfigProto(allow_soft_placement=True)) as session:
       except StopIteration:
         break
   elif args.mode == 'eval':
-    def decode(s):
-      parsed = wiki.nlp()(s)
-      tokens = np.array([t.orth for t in parsed], dtype=np.uint32)
-      rev = wiki.normalize_sequence(tokens)
-      fd = model.make_inference_inputs([rev])
-      pred = session.run(model.decoder_prediction_inference, fd)
-      words = []
-      for p in pred[:, 0]:
-        if p == 1:
-          break
-        elif p == 2:
-          words.append('<UNK>')
-        else:
-          words.append(wiki.nlp().vocab[p-3].orth_)
-      return ' '.join(words)
+    # def decode(s):
+    #   parsed = wiki.nlp()(s)
+    #   tokens = np.array([t.orth for t in parsed], dtype=np.uint32)
+    #   rev = wiki.normalize_sequence(tokens)
+    #   fd = model.make_inference_inputs([rev])
+    #   pred = session.run(model.decoder_prediction_inference, fd)
+    #   words = []
+    #   for p in pred[:, 0]:
+    #     if p == 1:
+    #       break
+    #     elif p == 2:
+    #       words.append('<UNK>')
+    #     else:
+    #       words.append(wiki.nlp().vocab[p-3].orth_)
+    #   return ' '.join(words)
     import IPython
     IPython.embed()

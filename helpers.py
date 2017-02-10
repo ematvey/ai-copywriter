@@ -1,6 +1,6 @@
 import numpy as np
 
-def batch(inputs, max_sequence_length=None):
+def batch(inputs, max_sequence_length=None, dtype=np.int32):
     """
     Args:
         inputs:
@@ -8,24 +8,24 @@ def batch(inputs, max_sequence_length=None):
         max_sequence_length:
             integer specifying how large should `max_time` dimension be.
             If None, maximum sequence length would be used
-    
+
     Outputs:
         inputs_time_major:
-            input sentences transformed into time-major matrix 
+            input sentences transformed into time-major matrix
             (shape [max_time, batch_size]) padded with 0s
         sequence_lengths:
-            batch-sized list of integers specifying amount of active 
+            batch-sized list of integers specifying amount of active
             time steps in each input sequence
     """
-    
+
     sequence_lengths = [len(seq) for seq in inputs]
     batch_size = len(inputs)
-    
+
     if max_sequence_length is None:
         max_sequence_length = max(sequence_lengths)
-    
-    inputs_batch_major = np.zeros(shape=[batch_size, max_sequence_length], dtype=np.int32) # == PAD
-    
+
+    inputs_batch_major = np.zeros(shape=[batch_size, max_sequence_length], dtype=dtype) # == PAD
+
     for i, seq in enumerate(inputs):
         for j, element in enumerate(seq):
             inputs_batch_major[i, j] = element
@@ -50,7 +50,7 @@ def random_sequences(length_from, length_to,
         if length_from == length_to:
             return length_from
         return np.random.randint(length_from, length_to + 1)
-    
+
     while True:
         yield [
             np.random.randint(low=vocab_lower,

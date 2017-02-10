@@ -3,7 +3,7 @@ import random
 import numpy as np
 
 
-class Preprocessor():
+class Corruptor():
   _DETS = {"a", "an", "the"}
   _DROPOUT_TOKENS = {"a", "an", "the", "'ll", "'s", "'m", "'ve", "to"}
 
@@ -19,7 +19,7 @@ class Preprocessor():
 
     self.comma = self.vocab[','].orth
 
-  def corrupt_sentence(self, tokens):
+  def __call__(self, tokens):
     res = []
     for i, tok in enumerate(tokens):
       sos = i == 0
@@ -70,6 +70,10 @@ class Preprocessor():
 
     return res
 
+class Preprocessor():
+  def __init__(self, vocab, corrupted_n=10):
+    self.corruptor = Corruptor(vocab, corrupted_n)
+
   @staticmethod
   def pack_sent(sent):
     return np.array(sent, np.uint32).tobytes()
@@ -80,7 +84,7 @@ class Preprocessor():
 
   def _preprocess(self, sent):
     sent = [t for t in sent if t.pos_ != 'SPACE']
-    corrupted = [self.corrupt_sentence(sent) for _ in range(self.corrupted_n)]
+    corrupted = [self.corruptor(sent) for _ in range(self.corrupted_n)]
     tokens = [t.orth for t in sent]
     return tokens, corrupted
 
