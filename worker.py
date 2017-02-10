@@ -1,5 +1,6 @@
 import argparse
 parser = argparse.ArgumentParser()
+parser.add_argument('--mode', type=str, default='train', choices=['train', 'eval'])
 parser.add_argument('--checkpoint-frequency', type=int, default=100)
 parser.add_argument('--eval-frequency', type=int, default=500)
 parser.add_argument('--batch-size', type=int, default=30)
@@ -110,9 +111,27 @@ with tf.Session(config=tf.ConfigProto(allow_soft_placement=True)) as session:
     except tf.errors.ResourceExhaustedError as e:
       print('REE: {}'.format(e))
 
-
-  for i in range(1000000):
-    try:
-      train_one()
-    except StopIteration:
-      break
+  if args.mode == 'train':
+    for i in range(1000000):
+      try:
+        train_one()
+      except StopIteration:
+        break
+  elif args.mode == 'eval':
+    def decode(s):
+      parsed = wiki.nlp()(s)
+      tokens = np.array([t.orth for t in parsed], dtype=np.uint32)
+      rev = wiki.normalize_sequence(tokens)
+      fd = model.make_inference_inputs([rev])
+      pred = session.run(model.decoder_prediction_inference, fd)
+      words = []
+      for p in pred[:, 0]:
+        if p == 1:
+          break
+        elif p == 2:
+          words.append('<UNK>')
+        else:
+          words.append(wiki.nlp().vocab[p-3].orth_)
+      return ' '.join(words)
+    import IPython
+    IPython.embed()
