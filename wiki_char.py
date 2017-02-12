@@ -40,23 +40,22 @@ moses = MosesDetokenizer()
 def corrupt_token_sequence(tokens):
   res = []
   for i, tok in enumerate(tokens):
-    sos = i == 0
-    eos = i == len(tokens)-1
-
-    if sos and random.random() > 0.9:
-      res.append(tok.lower())
-      continue
+    # sos = i == 0
+    # eos = i == len(tokens)-1
+    # if sos and random.random() > 0.9:
+    #   res.append(tok.lower())
+    #   continue
     # replacements
     replacement = REPLACEMENTS.get(tok)
-    if replacement is not None and random.random() > 0.7:
+    if replacement is not None and random.random() > 0.5:
       res.append(replacement)
       continue
     # drops
-    if tok in DROPOUT_TOKENS and random.random() > 0.8:
+    if tok in DROPOUT_TOKENS and random.random() > 0.5:
       continue
     # just drop a word
-    if random.random() > 0.99:
-      continue
+    # if random.random() > 0.99:
+    #   continue
     res.append(tok)
   return res
 

@@ -147,15 +147,19 @@ with tf.Session(config=tf.ConfigProto(allow_soft_placement=True)) as session:
         print('step %s, loss=%s, t=%s, inputs=%s, ' % (
           step, loss, round(td, 2), fd[model.encoder_inputs].shape,
         ))
-      if step % 25 == 0:
-        print('step %s, try decode' % step)
-        x = xs[0]
-        fd = model.make_inference_inputs([x])
-        pred = session.run(model.decoder_prediction_inference, fd)
-        print('IN:  %s' % decode(x))
-        print('OUT: %s' % decode(pred[:, 0]))
-        # import IPython
-        # IPython.embed()
+
+      # if step % 5 == 0:
+      #   for x, y in zip(xs, ys):
+      #     print('> %s' % decode(x))
+      #     print('< %s' % decode(y))
+
+      # if step % 25 == 0:
+      #   print('step %s, try decode' % step)
+      #   out = session.run(model.decoder_prediction_inference, model.make_inference_inputs(xs))
+      #   for x, y, o in zip(xs, ys, out.T):
+      #     print('IN:      %s' % decode(x))
+      #     print('OUT:     %s' % decode(o))
+      #     print('TARGET:  %s' % decode(y))
       if step != 0 and step % args.checkpoint_frequency == 0:
         print('checkpoint & graph meta')
         saver.save(session, checkpoint_path, global_step=step)
