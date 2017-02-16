@@ -8,7 +8,7 @@ import numpy as np
 import spacy
 import tqdm
 from spacy.tokens import Doc
-from textacy.corpora import WikiReader
+from wiki_reader import WikiReader
 import nltk
 
 train_dir = os.path.join('.', 'wikitrain')
